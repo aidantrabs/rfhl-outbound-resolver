@@ -1,6 +1,6 @@
-# Route 53 Outbound Resolver — Cross-Subnet DNS Resolution
+# Route 53 Outbound Resolver - Cross-Subnet DNS Resolution
 
-## Current Setup
+### Current Setup
 `TODO: validate this is accurate`
 
 ```
@@ -28,9 +28,9 @@
         └──────────────┘
 ```
 
-## How It Works
+### How It Works
 
-1. EC2 sends a DNS query to the **VPC DNS resolver** (the `.2` address — e.g. `10.0.0.2`)
+1. EC2 sends a DNS query to the **VPC DNS resolver** (the `.2` address - e.g. `10.0.0.2`)
 2. VPC DNS matches a **forwarding rule** for the domain
 3. VPC DNS hands the query to the **Outbound Resolver ENIs** on Subnet 2
 4. Outbound Resolver forwards the query to the **external DNS target IPs** defined in the rule
@@ -40,17 +40,17 @@
 
 ---
 
-## Configuration Checklist
+### Configuration Checklist
 
-### 1. EC2 DNS Settings (Subnet 1)
+#### 1. EC2 DNS Settings (Subnet 1)
 
 - [ ] **DHCP Options Set** on the VPC should use `AmazonProvidedDNS` (this is the default)
 - [ ] On the Windows EC2, the DNS server should be the **VPC DNS resolver** (VPC CIDR base + 2, e.g. `10.0.0.2`)
-  - Check: `ipconfig /all` — the DNS server should be `10.0.0.2`, **not** the outbound resolver ENI IPs
+  - Check: `ipconfig /all` - the DNS server should be `10.0.0.2`, **not** the outbound resolver ENI IPs
 - [ ] **`enableDnsSupport`** is `true` on the VPC (Settings → Edit DNS settings)
 - [ ] **`enableDnsHostnames`** is `true` on the VPC
 
-### 2. Outbound Resolver Endpoint (Subnet 2)
+#### 2. Outbound Resolver Endpoint (Subnet 2)
 
 - [ ] Outbound Resolver has **at least 2 ENIs** (likely already in place)
 - [ ] ENIs are in **Subnet 2** with valid private IPs
@@ -61,14 +61,14 @@
 | **Inbound**  | TCP/UDP  | 53   | VPC CIDR (`10.0.0.0/16`) | Accept DNS from VPC DNS resolver |
 | **Outbound** | TCP/UDP  | 53   | `0.0.0.0/0` (or target DNS IPs) | Forward to external DNS servers  |
 
-### 3. Resolver Forwarding Rule
+#### 3. Resolver Forwarding Rule
 
 - [ ] Rule **type** is `FORWARD`
 - [ ] Rule **domain** matches the domain being resolved (e.g. `corp.example.com` or `.` for all)
 - [ ] Rule has the **2 external DNS server IPs** as targets (port 53)
 - [ ] Rule is **associated with the VPC**
 
-### 4. Network ACLs (Often the Gotcha)
+#### 4. Network ACLs (Often the Gotcha)
 
 **Subnet 1 NACLs** (where EC2 lives):
 
@@ -88,12 +88,12 @@
 
 > If using **default NACLs** (allow all), this won't be the issue. But if custom NACLs are in place, this is the most common cross-subnet blocker.
 
-### 5. Route Tables
+#### 5. Route Tables
 
 - [ ] Both subnets can route to each other (automatic within the same VPC via the `local` route)
-- [ ] Subnet 2 has a route to the external DNS IPs (e.g. via NAT Gateway, Transit Gateway, VPN, or Direct Connect — depends on where those DNS servers live)
+- [ ] Subnet 2 has a route to the external DNS IPs (e.g. via NAT Gateway, Transit Gateway, VPN, or Direct Connect - depends on where those DNS servers live)
 
-### 6. EC2 Security Group (Subnet 1)
+#### 6. EC2 Security Group (Subnet 1)
 
 | Direction  | Protocol | Port | Dest           | Purpose       |
 |------------|----------|------|----------------|---------------|
@@ -103,12 +103,12 @@
 
 ---
 
-## Debugging
+### Debugging
 
 ```powershell
 # 1. Confirm DNS server on the Windows EC2
 ipconfig /all
-# Look for "DNS Servers" — should be 10.0.0.2 (VPC resolver)
+# Look for "DNS Servers" - should be 10.0.0.2 (VPC resolver)
 
 # 2. Test DNS resolution
 nslookup target.domain.com
@@ -123,11 +123,11 @@ Test-NetConnection -ComputerName 10.0.0.2 -Port 53
 
 ---
 
-## Common Mistakes
+### Common Mistakes
 
 | Mistake | Fix |
 |---------|-----|
-| EC2 DNS pointing directly at the Outbound Resolver ENI IPs | Set DNS to `10.0.0.2` (VPC resolver) — the VPC resolver handles forwarding |
+| EC2 DNS pointing directly at the Outbound Resolver ENI IPs | Set DNS to `10.0.0.2` (VPC resolver) - the VPC resolver handles forwarding |
 | Resolver rule not associated with the VPC | Associate the rule with the VPC in the Route 53 console |
 | Security group on resolver ENIs too restrictive | Allow inbound DNS (53) from VPC CIDR |
 | Custom NACLs blocking cross-subnet traffic | Allow DNS + ephemeral ports between subnets |
